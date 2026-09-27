@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cube Dash (GD Clone)</title>
+    <style>
+        body {
+            margin: 0;
+            background: #0a0a1a;
+            color: white;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        #gameUi {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        #scoreBoard {
+            font-size: 24px;
+            font-weight: bold;
+            color: #00f2fe;
+            text-shadow: 0 0 10px rgba(0,242,254,0.5);
+        }
+        #instructions {
+            font-size: 14px;
+            color: #888;
+            margin-top: 5px;
+        }
+        canvas {
+            background: linear-gradient(to bottom, #14142f, #080811);
+            border: 4px solid #333;
+            border-radius: 8px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            display: block;
+        }
+        #gameOverScreen {
+            display: none;
+            position: absolute;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 30px;
+            border-radius: 12px;
+            border: 2px solid #ff3366;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(255,51,102,0.3);
+        }
+        #gameOverScreen h1 {
+            color: #ff3366;
+            margin: 0 0 10px 0;
+        }
+        #btnRestart {
+            background: #ff3366;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        #btnRestart:hover {
+            background: #ff5588;
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameUi">
+        <div id="scoreBoard">Attempt: <span id="attemptCount">1</span> | Score: <span id="score">0</span></div>
+        <div id="instructions">Press <b>SPACEBAR</b>, <b>UP ARROW</b>, or <b>CLICK</b> to Jump</div>
+    </div>
+    <canvas id="gameCanvas" width="800" height="320"></canvas>
+    <div id="gameOverScreen">
+        <h1 id="overTitle">CRASHED!</h1>
+        <p id="overSub">Score: <span id="finalScore">0</span></p>
+        <button id="btnRestart" onclick="restartGame()">Try Again</button>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiGameOver = document.getElementById('gameOverScreen');
+
+        // Web Audio Synthesizer Setup
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) audioCtx = new AudioCtx();
+        }
+
+        function playSound(type) {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            if (type === 'jump') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.15);
+            } else if (type === 'score') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08); // A5
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.2);
+            } else if (type === 'crash') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(10, audioCtx.currentTime + 0.4);
+                gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.4);
+            }
+        }
+
+        // Game Variables
+        let isPlaying = true;
+        let score = 0;
+        let attempts = 1;
+        let gameSpeed = 6;
+        let spawnTimer = 0;
+
+        // Physics
+        const gravity = 0.65;
+        const floorY = canvas.height - 50;
+
+        // Player Object
+        const player = {
+            x: 100,
+            y: floorY - 30,
+            width: 30,
+            height: 30,
+            vy: 0,
+            jumpForce: -11.5,
+            isGrounded: false,
+            rotation: 0,
+            color: '#00f2fe'
+        };
+
+        // Arrays
+        let obstacles = [];
+        let particles = [];
+
+        // Input Listeners
+        window.addEventListener('keydown', (e) => {
+            initAudio();
+            if ((e.code === 'Space' || e.code === 'ArrowUp') && player.isGrounded && isPlaying) {
+                jump();
+            }
+        });
+        canvas.addEventListener('mousedown', () => {
+            initAudio();
+            if (player.isGrounded && isPlaying) jump();
+        });
+
+        function jump() {
+            player.vy = player.jumpForce;
+            player.isGrounded = false;
+            playSound('jump');
+        }
+
+        function spawnObstacle() {
+            obstacles.push({
+                x: canvas.width,
+                width: 30,
+                height: 34,
+                passed: false
+            });
+        }
+
+        function spawnParticles(x, y, count = 3) {
+            for (let i = 0; i < count; i++) {
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: -gameSpeed * 0.4 - Math.random() * 2,
+                    vy: (Math.random() - 0.5) * 4,
+                    size: Math.random() * 4 + 2,
+                    alpha: 1
+                });
+            }
+        }
+
+        function restartGame() {
+            obstacles = [];
+            particles = [];
+            score = 0;
+            gameSpeed = 6;
+            player.y = floorY - player.height;
+            player.vy = 0;
+            player.rotation = 0;
+            player.isGrounded = true;
+            isPlaying = true;
+            uiGameOver.style.display = 'none';
+            document.getElementById('score').innerText = score;
+        }
+
+        // Precise Triangle Collision Handling
+        function checkTriangleCollision(p, t) {
+            // Standard AABB Bound Box check first
+            if (p.x + p.width < t.x || p.x > t.x + t.width || p.y + p.height < floorY - t.height || p.y > floorY) {
+                return false;
+            }
+            // Dynamic check: mapping the 4 corners of the cube into the spike slopes
+            const spikePeakX = t.x + t.width / 2;
+            const spikePeakY = floorY - t.height;
+
+            const checkPointInsideSpike = (px, py) => {
+                if (py < spikePeakY || py > floorY || px < t.x || px > t.x + t.width) return false;
+                if (px <= spikePeakX) {
+                    // Left side slope formula
+                    const slope = t.height / (t.width / 2);
+                    return (py - spikePeakY) >= slope * (spikePeakX - px);
+                } else {
+                    // Right side slope formula
+                    const slope = t.height / (t.width / 2);
+                    return (py - spikePeakY) >= slope * (px - spikePeakX);
+                }
+            };
+
+            // Test critical edge contacts
+            return checkPointInsideSpike(p.x, p.y + p.height) || 
+                   checkPointInsideSpike(p.x + p.width, p.y + p.height) ||
+                   (p.y + p.height >= floorY && p.x + p.width/2 >= t.x && p.x + p.width/2 <= t.x + t.width);
+        }
+
+        // Main Game Loop
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Floor line
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(0, floorY);
+            ctx.lineTo(canvas.width, floorY);
+            ctx.stroke();
+
+            // Draw Grid Floor details (moving effect)
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 1;
+            let gridOffset = (gameSpeed * score * 5) % 40; 
+            for (let x = -gridOffset; x < canvas.width; x += 40) {
+                ctx.beginPath();
+                ctx.moveTo(x, floorY);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            if (isPlaying) {
+                // Apply Gravity to Player
+                player.vy += gravity;
+                player.y += player.vy;
+
+                // Floor Collision
+                if (player.y >= floorY - player.height) {
+                    player.y = floorY - player.height;
+                    player.vy = 0;
+                    player.isGrounded = true;
+                    // Snap rotation cleanly to nearest 90 degrees when landing
+                    player.rotation = Math.round(player.rotation / 90) * 90;
+                    
+                    // Spawn dust particles along the floor
+                    if (Math.random() > 0.4) spawnParticles(player.x, floorY - 2, 1);
+                } else {
+                    // Spin player dynamically while in mid-air
