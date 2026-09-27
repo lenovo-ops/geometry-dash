@@ -1,15 +1,6 @@
-v<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cube Dash (GD Clone)</title>
-    <style>
-        body {
-            margin: 0;
-            background: #0a0a1a;
+: #0a0a1a;
             color: white;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: 'Segoe UI'
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -17,29 +8,27 @@ v<!DOCTYPE html>
             height: 100vh;
             overflow: hidden;
             user-select: none;
-        }
+        
         #gameUi {
-            text-align: center;
+        
             margin-bottom: 10px;
-        }
-        #scoreBoard {
-            font-size: 24px;
-            font-weight: bold;
+        
+        #scoreBo
+            
             color: #00f2fe;
             text-shadow: 0 0 10px rgba(0,242,254,0.5);
-        }
+        
         #instructions {
             font-size: 14px;
             color: #888;
             margin-top: 5px;
-        }
-        canvas {
-            background: linear-gradient(to bottom, #14142f, #080811);
+        
+             #14142f, #080811);
             border: 4px solid #333;
             border-radius: 8px;
             box-shadow: 0 20px 50px rgba(0,0,0,0.5);
             display: block;
-        }
+        
         #gameOverScreen {
             display: none;
             position: absolute;
@@ -49,13 +38,12 @@ v<!DOCTYPE html>
             border: 2px solid #ff3366;
             text-align: center;
             box-shadow: 0 0 30px rgba(255,51,102,0.3);
-        }
+        
         #gameOverScreen h1 {
             color: #ff3366;
             margin: 0 0 10px 0;
-        }
-        #btnRestart {
-            background: #ff3366;
+        
+: #ff3366;
             color: white;
             border: none;
             padding: 10px 25px;
@@ -65,8 +53,7 @@ v<!DOCTYPE html>
             cursor: pointer;
             transition: 0.2s;
         }
-        #btnRestart:hover {
-            background: #ff5588;
+        #btnRestart:hover { #ff5588;
             transform: scale(1.05);
         }
     </style>
@@ -362,29 +349,20 @@ Use code with caution.player.rotation += 4.5;}// Spawn obstacles systematicallys
     <canvas id="gameCanvas" width="800" height="320"></canvas>
     <div id="gameOverScreen">
         <h1 id="overTitle">CRASHED!</h1>
-        <p id="overSub">Score: <span id="finalScore">0</span></p>
-        <button id="btnRestart" onclick="restartGame()">Try Again</button>
-    </div>
+        <p id="overSub">Score: <span id="finalScore">0</span></pton id="btnRestart" onclick="restartGame()">Try Again</butto
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const uiGameOver = document.getElementById('gameOverScreen');
 
-        // Web Audio Synthesizer Setup
-        const AudioCtx = window.AudioContext || window.webkitAudioContext;
-        let audioCtx = null;
+        
+        onst uiGameOver = document.getElementById('gameOverScreen');
 
-        function initAudio() {
-            if (!audioCtx) audioCtx = new AudioCtx();
-        }
 
-        function playSound(type) {
+     AudioCtx = window.AudioContext || window.webkitAudioContex
             if (!audioCtx) return;
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
             osc.connect(gain);
-            gain.connect(audioCtx.destination);
+            
 
             if (type === 'jump') {
                 osc.type = 'triangle';
@@ -464,7 +442,7 @@ Use code with caution.player.rotation += 4.5;}// Spawn obstacles systematicallys
                 x: canvas.width,
                 width: 30,
                 height: 34,
-                passed: false
+                passed: 
             });
         }
 
@@ -747,7 +725,7 @@ Use code with caution.player.rotation += 4.5;}// Spawn obstacles systematicallys
                 x: canvas.width,
                 width: 30,
                 height: 34,
-                passed: false
+                passed: 
             });
         }
 
