@@ -1,0 +1,149 @@
+      // Test critical edge contacts (Bottom-left, Bottom-right, Top-left, Top-right corners of the player)
+            return checkPointInsideSpike(p.x, p.y + p.height) || 
+                   checkPointInsideSpike(p.x + p.width, p.y + p.height) ||
+                   checkPointInsideSpike(p.x, p.y) || 
+                   checkPointInsideSpike(p.x + p.width, p.y);
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            playSound('crash');
+            attempts++;
+            document.getElementById('attemptCount').innerText = attempts;
+            document.getElementById('finalScore').innerText = score;
+            uiGameOver.style.display = 'block';
+        }
+
+        // Main Game Loop
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Decorative Grid / Floor line
+            ctx.strokeStyle = '#33335c';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, floorY);
+            ctx.lineTo(canvas.width, floorY);
+            ctx.stroke();
+
+            // Ground Fill
+            ctx.fillStyle = '#080811';
+            ctx.fillRect(0, floorY, canvas.width, canvas.height - floorY);
+
+            if (isPlaying) {
+                // Apply Gravity & Physics
+                player.vy += gravity;
+                player.y += player.vy;
+
+                // Floor Collison Lock
+                if (player.y >= floorY - player.height) {
+                    player.y = floorY - player.height;
+                    player.vy = 0;
+                    player.isGrounded = true;
+                    // Snap rotation cleanly back to 90deg increments when landing
+                    player.rotation = Math.round(player.rotation / (Math.PI / 2)) * (Math.PI / 2);
+                }
+
+                // Smoothly rotate cube in mid-air
+                if (!player.isGrounded) {
+                    player.rotation += 0.09;
+                } else {
+                    // Spawn floor dust particles
+                    if (Math.random() < 0.4) spawnParticles(player.x, floorY, 1);
+                }
+
+                // Handle Obstacles Spawning
+                spawnTimer++;
+                let spawnInterval = Math.max(45, 90 - Math.floor(gameSpeed * 2));
+                if (spawnTimer > spawnInterval) {
+                    if (Math.random() < 0.6) {
+                        spawnObstacle();
+                        spawnTimer = 0;
+                    }
+                }
+            }
+
+            // Handle & Render Obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                let obs = obstacles[i];
+                if (isPlaying) obs.x -= gameSpeed;
+
+                // Draw Triangle Spike
+                ctx.fillStyle = '#ff3366';
+                ctx.beginPath();
+                ctx.moveTo(obs.x, floorY);
+                ctx.lineTo(obs.x + obs.width / 2, floorY - obs.height);
+                ctx.lineTo(obs.x + obs.width, floorY);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Add glowing outer neon rim to spike
+                ctx.strokeStyle = '#ff66aa';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Collision detection
+                if (checkTriangleCollision(player, obs)) {
+                    gameOver();
+                }
+
+                // Score increment tracking
+                if (!obs.passed && obs.x + obs.width < player.x) {
+                    obs.passed = true;
+                    score++;
+                    document.getElementById('score').innerText = score;
+                    playSound('score');
+                    // Dynamic scaling game speed progression
+                    if (score % 5 === 0) gameSpeed += 0.5;
+                }
+
+                // Clean memory leak / remove old obstacles
+                if (obs.x + obs.width < 0) {
+                    obstacles.splice(i, 1);
+                }
+            }
+
+            // Render Particle Engine
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                if (isPlaying) {
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.alpha -= 0.02;
+                }
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+                ctx.fillStyle = `rgba(0, 242, 254, ${p.alpha})`;
+                ctx.fillRect(p.x, p.y, p.size, p.size);
+            }
+
+            // Draw Player Cube with Rotation Matrix
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, player.y + player.height / 2);
+            ctx.rotate(player.rotation);
+            
+            // Glowing Cube Box
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#00f2fe';
+            ctx.fillStyle = player.color;
+            ctx.fillRect(-player.width / 2, -player.height / 2, player.width, player.height);
+            
+            // Outer geometric line accent (GD iconic face-box design template layout frame)
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-player.width / 2 + 3, -player.height / 2 + 3, player.width - 6, player.height - 6);
+            ctx.restore();
+            
+            // Clear shadow styles for next ticks
+            ctx.shadowBlur = 0;
+
+            requestAnimationFrame(update);
+        }
+
+        // Start engine tick immediately
+        requestAnimationFrame(update);
+    </script>
+</body>
+</html>
